@@ -28,6 +28,7 @@ const ReportsPage = lazy(() => import("@/pages/reports/ReportsPage"))
 const AIAnalysisPage = lazy(() => import("@/pages/ai/AIAnalysisPage"))
 const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"))
 const YearTransitionPage = lazy(() => import("@/pages/academic/YearTransitionPage"))
+const DocumentationPage = lazy(() => import("@/pages/docs/DocumentationPage"))
 
 function LazyPage({ children }) {
   return (
@@ -90,6 +91,7 @@ const router = createBrowserRouter([
       { path: "ai-analysis", element: <Protected permission="ia.ver-resultados"><AIAnalysisPage /></Protected> },
       { path: "year-transition", element: <Protected permission="transicion.ver"><YearTransitionPage /></Protected> },
       { path: "settings", element: <Protected permission="configuracion.ver"><SettingsPage /></Protected> },
+      { path: "docs", element: <LazyPage><DocumentationPage /></LazyPage> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

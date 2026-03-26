@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { chatApi } from "@/api/endpoints"
 import { toast } from "sonner"
 import { PanelLeft, Sparkles } from "lucide-react"
@@ -21,7 +21,6 @@ function WelcomeScreen({ onSuggestionClick }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center overflow-y-auto dark:bg-[#0C1013]" style={{ backgroundImage: SVG_PATTERN }}>
       <div className="relative mb-5" style={{ width: 48, height: 48 }}>
-        {/* Pulse rings like heartbeat */}
         <span
           className="absolute rounded-full bg-primary"
           style={{ inset: -6, animation: "welcome-ping 4s ease-out infinite" }}
@@ -30,7 +29,6 @@ function WelcomeScreen({ onSuggestionClick }) {
           className="absolute rounded-full bg-primary"
           style={{ inset: -3, animation: "welcome-ping 4s ease-out infinite 1s" }}
         />
-        {/* Main circle with heartbeat */}
         <div
           className="relative flex h-12 w-12 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/25"
           style={{ animation: "welcome-heartbeat 3.5s ease-in-out infinite" }}
@@ -77,6 +75,8 @@ export default function ChatArea({ conversationId, onToggleSidebar, onNewConvers
   const queryClient = useQueryClient()
   const scrollRef = useRef(null)
   const [optimisticMessages, setOptimisticMessages] = useState([])
+  const [streamingContent, setStreamingContent] = useState("")
+  const [isStreaming, setIsStreaming] = useState(false)
 
   const { data: messagesData } = useQuery({
     queryKey: ["chat-messages", conversationId],
@@ -86,27 +86,16 @@ export default function ChatArea({ conversationId, onToggleSidebar, onNewConvers
 
   const messages = messagesData || []
 
-  const sendMutation = useMutation({
-    mutationFn: ({ conversationId: cId, message }) =>
-      chatApi.sendMessage(cId, { message }).then((r) => r.data.data || r.data),
-    onSuccess: () => {
-      setOptimisticMessages([])
-      queryClient.invalidateQueries({ queryKey: ["chat-messages", conversationId] })
-      queryClient.invalidateQueries({ queryKey: ["chat-conversations"] })
-    },
-    onError: (err) => {
-      setOptimisticMessages([])
-      toast.error(err.response?.data?.message || "Error al enviar mensaje")
-    },
-  })
-
+  // Auto-scroll on new content
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, optimisticMessages, sendMutation.isPending])
+  }, [messages, optimisticMessages, streamingContent, isStreaming])
 
-  const handleSend = async (text) => {
+  const handleSend = useCallback(async (text) => {
+    if (isStreaming) return
+
     let cId = conversationId
 
     if (!cId) {
@@ -122,11 +111,47 @@ export default function ChatArea({ conversationId, onToggleSidebar, onNewConvers
       }
     }
 
+    // Show user message optimistically
     setOptimisticMessages([{ id: "opt-user", role: "user", content: text }])
-    sendMutation.mutate({ conversationId: cId, message: text })
-  }
+    setStreamingContent("")
+    setIsStreaming(true)
+
+    // Stream the response
+    chatApi.streamMessage(
+      cId,
+      text,
+      // onChunk - append each token as it arrives
+      (chunk) => {
+        setStreamingContent((prev) => prev + chunk)
+      },
+      // onDone - finalize
+      () => {
+        setIsStreaming(false)
+        setStreamingContent("")
+        setOptimisticMessages([])
+        queryClient.invalidateQueries({ queryKey: ["chat-messages", cId] })
+        queryClient.invalidateQueries({ queryKey: ["chat-conversations"] })
+      },
+      // onError
+      (error) => {
+        setIsStreaming(false)
+        setStreamingContent("")
+        setOptimisticMessages([])
+        toast.error(error || "Error al procesar mensaje")
+      }
+    )
+  }, [conversationId, isStreaming, onNewConversation, queryClient])
 
   const allMessages = [...messages, ...optimisticMessages]
+
+  // Add streaming assistant message if we have content
+  if (streamingContent) {
+    allMessages.push({
+      id: "streaming",
+      role: "assistant",
+      content: streamingContent,
+    })
+  }
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 dark:bg-[#0C1013]">
@@ -146,13 +171,13 @@ export default function ChatArea({ conversationId, onToggleSidebar, onNewConvers
             {allMessages.map((msg, i) => (
               <ChatMessage key={msg.id || `msg-${i}`} message={msg} />
             ))}
-            {(sendMutation.isPending || analyzing) && <ThinkingIndicator />}
+            {(isStreaming && !streamingContent) || analyzing ? <ThinkingIndicator /> : null}
           </div>
         </div>
       )}
 
       {/* Input */}
-      <ChatInput onSend={handleSend} disabled={sendMutation.isPending} />
+      <ChatInput onSend={handleSend} disabled={isStreaming} />
     </div>
   )
 }

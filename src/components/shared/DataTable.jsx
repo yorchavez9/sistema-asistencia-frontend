@@ -58,8 +58,8 @@ export default function DataTable({
   const detailCols = mobileColumns.filter((c) => c !== primaryCol)
   const totalCols = visibleColumns.length + (actions ? 1 : 0)
 
-  const renderCellValue = (col, item) =>
-    col.render ? col.render(item) : String(item[col.key] ?? "-")
+  const renderCellValue = (col, item, idx) =>
+    col.render ? col.render(item, idx) : String(item[col.key] ?? "-")
 
   const renderSortIcon = (col) => {
     if (!onSortChange || col.sortable === false) return null
@@ -123,7 +123,7 @@ export default function DataTable({
                 <TableRow key={item.id ?? idx}>
                   {visibleColumns.map((col) => (
                     <TableCell key={col.key} className={col.className}>
-                      {renderCellValue(col, item)}
+                      {renderCellValue(col, item, idx)}
                     </TableCell>
                   ))}
                   {actions && (
@@ -149,7 +149,7 @@ export default function DataTable({
             <div key={item.id ?? idx} className="rounded-xl bg-muted/40 dark:bg-card p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <span className="font-medium text-sm">
-                  {renderCellValue(primaryCol, item)}
+                  {renderCellValue(primaryCol, item, idx)}
                 </span>
                 {actions && <div className="flex gap-1 shrink-0">{actions(item)}</div>}
               </div>
@@ -158,7 +158,7 @@ export default function DataTable({
                   {detailCols.map((col) => (
                     <div key={col.key} className="flex justify-between gap-2">
                       <span className="text-muted-foreground">{col.label}</span>
-                      <span className="text-right">{renderCellValue(col, item)}</span>
+                      <span className="text-right">{renderCellValue(col, item, idx)}</span>
                     </div>
                   ))}
                 </div>
@@ -169,12 +169,14 @@ export default function DataTable({
       </div>
 
       {/* Pagination footer */}
-      {pagination && pagination.total > 0 && (
+      {pagination && (
         <>
           {/* Desktop pagination */}
           <div className="hidden sm:flex items-center justify-between gap-4 pt-1">
             <p className="text-sm text-muted-foreground shrink-0">
-              Mostrando {pagination.from}-{pagination.to} de {pagination.total}
+              {pagination.total > 0
+                ? `Mostrando ${pagination.from}-${pagination.to} de ${pagination.total}`
+                : `${pagination.total} registros`}
             </p>
             {pagination.lastPage > 1 && (
               <div className="flex items-center gap-1">

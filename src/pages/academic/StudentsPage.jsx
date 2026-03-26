@@ -99,9 +99,8 @@ export default function StudentsPage() {
 
   const sectionsList = Array.isArray(sections) ? sections : sections?.data || []
   const yearsList = Array.isArray(years) ? years : years?.data || []
-  // r.data.data = { data: [...students], current_page, last_page, per_page, total, from, to }
   const students = Array.isArray(data) ? data : data?.data || []
-  const meta = Array.isArray(data) ? null : data
+  const meta = data?.meta || null
 
   const openCreate = () => {
     setEditing(null)
@@ -197,6 +196,10 @@ export default function StudentsPage() {
   }
 
   const columns = [
+    {
+      key: "row_number", label: "N°",
+      render: (s, idx) => ((meta?.current_page || page) - 1) * (meta?.per_page || perPage) + idx + 1,
+    },
     { key: "dni", label: "DNI", hideOnMobile: true },
     {
       key: "full_name", label: "Apellidos y Nombres", primary: true,

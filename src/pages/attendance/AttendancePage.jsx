@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
+import confetti from "canvas-confetti"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { attendanceApi, assignmentsApi, studentsApi } from "@/api/endpoints"
 import PageHeader from "@/components/shared/PageHeader"
@@ -20,10 +21,10 @@ import { toast } from "sonner"
 import { Save, CheckCircle, ClipboardList } from "lucide-react"
 
 const STATUS_OPTIONS = [
-  { value: "presente", label: "P", fullLabel: "Presente", variant: "default", activeClass: "bg-green-600 text-white border-green-600" },
-  { value: "tardanza", label: "T", fullLabel: "Tardanza", variant: "secondary", activeClass: "bg-yellow-500 text-white border-yellow-500" },
-  { value: "falta_justificada", label: "FJ", fullLabel: "F. Justificada", variant: "outline", activeClass: "bg-blue-500 text-white border-blue-500" },
-  { value: "falta_injustificada", label: "FI", fullLabel: "F. Injustificada", variant: "destructive", activeClass: "bg-red-600 text-white border-red-600" },
+  { value: "presente", label: "P", fullLabel: "Presente", variant: "default", activeClass: "bg-emerald-500 text-white border-emerald-500", badgeClass: "bg-emerald-500 text-white border-emerald-500" },
+  { value: "tardanza", label: "T", fullLabel: "Tardanza", variant: "secondary", activeClass: "bg-amber-400 text-white border-amber-400", badgeClass: "bg-amber-400 text-white border-amber-400" },
+  { value: "falta_justificada", label: "FJ", fullLabel: "F. Justificada", variant: "outline", activeClass: "bg-sky-500 text-white border-sky-500", badgeClass: "bg-sky-500 text-white border-sky-500" },
+  { value: "falta_injustificada", label: "FI", fullLabel: "F. Injustificada", variant: "destructive", activeClass: "bg-rose-500 text-white border-rose-500", badgeClass: "bg-rose-500 text-white border-rose-500" },
 ]
 
 export default function AttendancePage() {
@@ -133,11 +134,26 @@ export default function AttendancePage() {
     }
   }
 
+  const fireConfetti = useCallback(() => {
+    const duration = 4 * 1000
+    const end = Date.now() + duration
+    const defaults = { ticks: 200, gravity: 0.8, scalar: 1.2 }
+    const interval = setInterval(() => {
+      if (Date.now() > end) return clearInterval(interval)
+      // Cañones laterales
+      confetti({ ...defaults, particleCount: 2, angle: 60, spread: 70, startVelocity: 40, origin: { x: 0, y: 0.5 }, colors: ["#10b981", "#38bdf8", "#fbbf24"] })
+      confetti({ ...defaults, particleCount: 2, angle: 120, spread: 70, startVelocity: 40, origin: { x: 1, y: 0.5 }, colors: ["#10b981", "#38bdf8", "#fbbf24"] })
+      // Lluvia desde arriba
+      confetti({ ...defaults, particleCount: 2, angle: 270, spread: 180, startVelocity: 15, origin: { x: Math.random(), y: 0 }, colors: ["#fbbf24", "#fcd34d", "#f59e0b"] })
+    }, 120)
+  }, [])
+
   const saveMutation = useMutation({
     mutationFn: (data) =>
       isEditing ? attendanceApi.bulkUpdate(data) : attendanceApi.bulkStore(data),
     onSuccess: () => {
       toast.success(isEditing ? "Asistencia actualizada" : "Asistencia registrada")
+      fireConfetti()
       queryClient.invalidateQueries({ queryKey: ["attendance-check", assignmentId, date] })
       queryClient.invalidateQueries({ queryKey: ["my-courses"] })
       setModalOpen(false)
@@ -271,25 +287,40 @@ export default function AttendancePage() {
 
       {/* Modal de asistencia - NO se modifica, mantiene tabla interactiva original */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] h-[90vh] sm:h-auto flex flex-col p-0 sm:p-4 gap-0 sm:gap-4">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] h-[90vh] sm:h-auto flex flex-col p-0 sm:p-4 gap-0 sm:gap-4 !rounded-sm">
           <DialogHeader className="px-4 pt-4 sm:px-0 sm:pt-0">
             <DialogTitle>Registro de Asistencia</DialogTitle>
-            <div className="flex flex-col sm:flex-row sm:gap-x-4 gap-y-1 text-sm text-muted-foreground pt-1">
+            {/* Desktop: todo en una fila */}
+            <div className="hidden sm:flex items-center gap-x-6 text-sm text-muted-foreground pt-1">
               <span><span className="font-medium text-foreground">Asignación:</span> {assignmentLabel}</span>
               <span><span className="font-medium text-foreground">Fecha:</span> {date}</span>
+              <div className="flex gap-2 ml-auto">
+                {STATUS_OPTIONS.map((opt) => {
+                  const count = attendances.filter((a) => a.status === opt.value).length
+                  return (
+                    <Badge key={opt.value} className={cn(opt.badgeClass, "!rounded-md border")}>
+                      {opt.fullLabel}: {count}
+                    </Badge>
+                  )
+                })}
+              </div>
+            </div>
+            {/* Mobile: apilado */}
+            <div className="flex flex-col gap-2 sm:hidden text-sm text-muted-foreground pt-1">
+              <span><span className="font-medium text-foreground">Asignación:</span> {assignmentLabel}</span>
+              <span><span className="font-medium text-foreground">Fecha:</span> {date}</span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {STATUS_OPTIONS.map((opt) => {
+                  const count = attendances.filter((a) => a.status === opt.value).length
+                  return (
+                    <Badge key={opt.value} className={cn(opt.badgeClass, "!rounded-md border justify-center")}>
+                      {opt.fullLabel}: {count}
+                    </Badge>
+                  )
+                })}
+              </div>
             </div>
           </DialogHeader>
-
-          <div className="flex gap-2 flex-wrap px-4 sm:px-0">
-            {STATUS_OPTIONS.map((opt) => {
-              const count = attendances.filter((a) => a.status === opt.value).length
-              return (
-                <Badge key={opt.value} variant={opt.variant}>
-                  {opt.fullLabel}: {count}
-                </Badge>
-              )
-            })}
-          </div>
 
           {/* Desktop: tabla */}
           <div className="flex-1 overflow-y-auto hidden sm:block rounded-xl bg-muted/30 dark:bg-card overflow-hidden">
@@ -378,7 +409,7 @@ export default function AttendancePage() {
             ))}
           </div>
 
-          <DialogFooter className="px-4 pb-4 sm:px-0 sm:pb-0">
+          <DialogFooter className="px-4 pb-4 pt-2 sm:px-2 sm:pb-3">
             <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
