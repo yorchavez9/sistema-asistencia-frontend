@@ -34,9 +34,7 @@ export default function LoginPage() {
       const session = await login({ email, password })
       toast.success("Inicio de sesión exitoso")
 
-      const canRegisterAttendance = hasPermission("asistencia.registrar")
-
-      navigate(canRegisterAttendance ? "/attendance" : "/")
+      navigate("/attendance")
     } catch (error) {
       const message = error.response?.data?.message || "Error al iniciar sesión"
       toast.error(message)
