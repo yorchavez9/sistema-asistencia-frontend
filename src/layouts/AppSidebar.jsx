@@ -12,6 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   LayoutDashboard,
@@ -105,6 +106,7 @@ export default function AppSidebar() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
   const { logoUrl } = useSettings()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   return (
     <Sidebar>
@@ -145,11 +147,17 @@ export default function AppSidebar() {
                               : location.pathname.startsWith(item.href)
                             : false
                         }
-                        onClick={() =>
-                          item.external
-                            ? window.open(item.external, "_blank")
-                            : navigate(item.href)
-                        }
+                        onClick={() => {
+                          if (item.external) {
+                            window.open(item.external, "_blank")
+                          } else {
+                            navigate(item.href)
+                          }
+
+                          if (isMobile) {
+                            setOpenMobile(false)
+                          }
+                        }}
                       >
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>

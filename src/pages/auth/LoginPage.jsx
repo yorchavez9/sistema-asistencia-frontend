@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { login, hasPermission } = useAuth()
   const navigate = useNavigate()
   const { logoUrl, loginBgUrl } = useSettings()
 
@@ -31,9 +31,12 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await login({ email, password })
+      const session = await login({ email, password })
       toast.success("Inicio de sesión exitoso")
-      navigate("/")
+
+      const canRegisterAttendance = hasPermission("asistencia.registrar")
+
+      navigate(canRegisterAttendance ? "/attendance" : "/")
     } catch (error) {
       const message = error.response?.data?.message || "Error al iniciar sesión"
       toast.error(message)
