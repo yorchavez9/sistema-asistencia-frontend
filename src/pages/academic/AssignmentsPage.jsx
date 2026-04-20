@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/select"
 import SearchableSelect from "@/components/shared/SearchableSelect"
 import { toast } from "sonner"
-import { Pencil, Trash2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Pencil, Trash2, Search, X } from "lucide-react"
 import ActionButton from "@/components/shared/ActionButton"
 
 const initialForm = {
@@ -33,6 +34,13 @@ export default function AssignmentsPage() {
   const [selectedId, setSelectedId] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [gradeSubjects, setGradeSubjects] = useState(null) // null = not loaded, [] = no subjects
+
+  // Filtros de búsqueda
+  const [searchTeacher, setSearchTeacher] = useState("")
+  const [filterSubject, setFilterSubject] = useState("")
+  const [filterGrade, setFilterGrade] = useState("")
+  const [filterSection, setFilterSection] = useState("")
+  const [filterYear, setFilterYear] = useState("")
 
   const { data, isLoading } = useQuery({
     queryKey: ["teacher-assignments"],
@@ -61,6 +69,42 @@ export default function AssignmentsPage() {
   const sectionsList = Array.isArray(sections) ? sections : sections?.data || []
   const yearsList = Array.isArray(years) ? years : years?.data || []
   const items = Array.isArray(data) ? data : data?.data || []
+
+  // Lista única de grados derivada de las secciones cargadas
+  const gradesList = sectionsList.reduce((acc, s) => {
+    if (s.grade && !acc.find((g) => g.id === s.grade.id)) acc.push(s.grade)
+    return acc
+  }, [])
+
+  // Filtrado en tiempo real
+  const filteredItems = items.filter((item) => {
+    const teacherName = item.teacher?.name?.toLowerCase() || ""
+    const subjectName = item.subject?.name?.toLowerCase() || ""
+    const sectionGradeId = item.section?.grade_id ?? item.section?.grade?.id
+    const sectionId = item.section_id
+    const yearId = item.academic_year_id
+
+    if (searchTeacher && !teacherName.includes(searchTeacher.toLowerCase())) return false
+    if (filterSubject && String(item.subject_id) !== filterSubject) return false
+    if (filterGrade && String(sectionGradeId) !== filterGrade) return false
+    if (filterSection && String(sectionId) !== filterSection) return false
+    if (filterYear && String(yearId) !== filterYear) return false
+    return true
+  })
+
+  const hasActiveFilters = searchTeacher || filterSubject || filterGrade || filterSection || filterYear
+  const clearFilters = () => {
+    setSearchTeacher("")
+    setFilterSubject("")
+    setFilterGrade("")
+    setFilterSection("")
+    setFilterYear("")
+  }
+
+  // Secciones filtradas por grado seleccionado en los filtros
+  const sectionsForFilter = filterGrade
+    ? sectionsList.filter((s) => String(s.grade_id ?? s.grade?.id) === filterGrade)
+    : sectionsList
 
   // When section changes in the form, load grade subjects
   useEffect(() => {
@@ -164,7 +208,7 @@ export default function AssignmentsPage() {
     hasPermission("asignaciones.editar") || hasPermission("asignaciones.eliminar")
 
   const { data: paginatedData, pagination, onPageChange, onPerPageChange, sortKey, sortDirection, onSortChange } =
-    useClientPagination(items, 10)
+    useClientPagination(filteredItems, 10)
 
   return (
     <div className="space-y-4">
@@ -173,6 +217,68 @@ export default function AssignmentsPage() {
         action={hasPermission("asignaciones.crear") ? "Nuevo" : null}
         onAction={openCreate}
       />
+
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar docente..."
+            value={searchTeacher}
+            onChange={(e) => setSearchTeacher(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <SearchableSelect
+          value={filterGrade || "all"}
+          onValueChange={(v) => { setFilterGrade(v === "all" ? "" : v); setFilterSection("") }}
+          options={[
+            { value: "all", label: "Todos los grados" },
+            ...gradesList.map((g) => ({ value: String(g.id), label: g.name })),
+          ]}
+          placeholder="Todos los grados"
+          className="w-44"
+        />
+        <SearchableSelect
+          value={filterSection || "all"}
+          onValueChange={(v) => setFilterSection(v === "all" ? "" : v)}
+          options={[
+            { value: "all", label: "Todas las secciones" },
+            ...sectionsForFilter.map((s) => ({
+              value: String(s.id),
+              label: s.full_name || `${s.grade?.name || ""} "${s.name}"`,
+            })),
+          ]}
+          placeholder="Todas las secciones"
+          className="w-52"
+        />
+        <SearchableSelect
+          value={filterSubject || "all"}
+          onValueChange={(v) => setFilterSubject(v === "all" ? "" : v)}
+          options={[
+            { value: "all", label: "Todas las materias" },
+            ...subjectsList.map((s) => ({ value: String(s.id), label: s.name })),
+          ]}
+          placeholder="Todas las materias"
+          className="w-52"
+        />
+        <SearchableSelect
+          value={filterYear || "all"}
+          onValueChange={(v) => setFilterYear(v === "all" ? "" : v)}
+          options={[
+            { value: "all", label: "Todos los años" },
+            ...yearsList.map((y) => ({ value: String(y.id), label: y.name })),
+          ]}
+          placeholder="Todos los años"
+          className="w-36"
+        />
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+            <X className="h-4 w-4 mr-1" />
+            Limpiar
+          </Button>
+        )}
+      </div>
 
       <DataTable
         columns={columns}
