@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import SearchableSelect from "@/components/shared/SearchableSelect"
 import { toast } from "sonner"
-import { Pencil, Trash2, ToggleLeft, ToggleRight, Search, Loader2, Eye, EyeOff, FileDown, X } from "lucide-react"
+import { Pencil, Trash2, ToggleLeft, ToggleRight, Search, Loader2, Eye, EyeOff, FileDown, X, Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react"
 import ActionButton from "@/components/shared/ActionButton"
 import jsPDF from "jspdf"
 import "jspdf-autotable"
@@ -39,6 +39,10 @@ export default function UsersPage() {
   const [dniLoading, setDniLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [credentials, setCredentials] = useState([])
+
+  const [importOpen, setImportOpen] = useState(false)
+  const [importFile, setImportFile] = useState(null)
+  const [importResult, setImportResult] = useState(null)
 
   const handleSortChange = (key) => {
     if (sortBy === key) {
@@ -99,6 +103,46 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["users"] })
     },
   })
+
+  const importMutation = useMutation({
+    mutationFn: (formData) => usersApi.import(formData),
+    onSuccess: (res) => {
+      const result = res.data.data
+      setImportResult(result)
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+      if (result.imported > 0) {
+        toast.success(`${result.imported} usuario${result.imported !== 1 ? "s" : ""} importado${result.imported !== 1 ? "s" : ""} correctamente`)
+      }
+    },
+    onError: (err) => toast.error(err.response?.data?.message || "Error al importar el archivo"),
+  })
+
+  const handleImport = () => {
+    if (!importFile) return
+    const formData = new FormData()
+    formData.append("file", importFile)
+    importMutation.mutate(formData)
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await usersApi.downloadTemplate()
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement("a")
+      a.href = url
+      a.download = "plantilla_usuarios.xlsx"
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error("Error al descargar la plantilla")
+    }
+  }
+
+  const closeImport = () => {
+    setImportOpen(false)
+    setImportFile(null)
+    setImportResult(null)
+  }
 
   const openCreate = () => {
     setEditingUser(null)
@@ -241,6 +285,12 @@ export default function UsersPage() {
         description={`${totalItems} usuarios registrados`}
         action={hasPermission("usuarios.crear") ? "Nuevo usuario" : null}
         onAction={openCreate}
+        extra={hasPermission("usuarios.crear") && (
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Importar Excel
+          </Button>
+        )}
       />
 
       {credentials.length > 0 && (
@@ -413,6 +463,80 @@ export default function UsersPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate(selectedId)}
       />
+
+      {/* Import Dialog */}
+      <Dialog open={importOpen} onOpenChange={closeImport}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Importar usuarios desde Excel</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+              <FileSpreadsheet className="h-4 w-4 shrink-0" />
+              <span>El archivo debe tener las columnas: <strong>nombre_completo, dni, email, telefono, contrasena, rol</strong></span>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="w-full">
+              <FileDown className="h-4 w-4 mr-2" />
+              Descargar plantilla Excel
+            </Button>
+
+            {!importResult && (
+              <div className="space-y-2">
+                <Label>Seleccionar archivo (.xlsx, .xls, .csv)</Label>
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => { setImportFile(e.target.files?.[0] || null) }}
+                />
+              </div>
+            )}
+
+            {importResult && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  <span className="text-sm text-green-700 dark:text-green-300">
+                    {importResult.imported} usuario{importResult.imported !== 1 ? "s" : ""} importado{importResult.imported !== 1 ? "s" : ""} exitosamente
+                  </span>
+                </div>
+
+                {importResult.errors?.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {importResult.errors.length} fila{importResult.errors.length !== 1 ? "s" : ""} con errores:
+                    </div>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {importResult.errors.map((err, i) => (
+                        <div key={i} className="text-xs p-2 bg-destructive/10 rounded border border-destructive/20">
+                          <span className="font-medium">Fila {err.row}:</span> {err.messages.join(", ")}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeImport}>
+              {importResult ? "Cerrar" : "Cancelar"}
+            </Button>
+            {!importResult && (
+              <Button onClick={handleImport} disabled={!importFile || importMutation.isPending}>
+                {importMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Importando...</>
+                ) : (
+                  <><Upload className="h-4 w-4 mr-2" />Importar</>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

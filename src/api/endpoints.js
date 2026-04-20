@@ -13,6 +13,10 @@ const crud = (resource) => ({
 export const usersApi = {
   ...crud("users"),
   toggleStatus: (id) => api.patch(`/users/${id}/toggle-status`),
+  import: (formData) => api.post("/users/import", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }),
+  downloadTemplate: () => api.get("/users/template", { responseType: "blob" }),
 }
 
 export const rolesApi = {
