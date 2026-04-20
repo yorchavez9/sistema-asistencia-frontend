@@ -58,6 +58,11 @@ export const assignmentsApi = {
   ...crud("teacher-assignments"),
   myAssignments: () => api.get("/my-assignments"),
   getBySection: (sectionId) => api.get("/teacher-assignments", { params: { section_id: sectionId } }),
+  import: (formData) => api.post("/teacher-assignments/import", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }),
+  downloadTemplate: () => api.get("/teacher-assignments/template", { responseType: "blob" }),
+  bulkStore: (assignments) => api.post("/teacher-assignments/bulk", { assignments }),
 }
 
 export const attendanceApi = {
