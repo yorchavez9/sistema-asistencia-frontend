@@ -423,120 +423,184 @@ export default function AssignmentsPage() {
 
       {/* ── Bulk form dialog ──────────────────────────────────────────────── */}
       <Dialog open={bulkOpen} onOpenChange={closeBulk}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5" />
+        <DialogContent className="w-[96vw] max-w-5xl h-[92vh] p-0 flex flex-col gap-0 overflow-hidden">
+
+          {/* Header sticky */}
+          <div className="shrink-0 px-6 pt-6 pb-4 border-b bg-background">
+            <DialogTitle className="flex items-center gap-2 text-lg mb-4">
+              <Layers className="h-5 w-5 text-primary" />
               Asignación múltiple por docente
             </DialogTitle>
-          </DialogHeader>
 
-          {!bulkResult ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Docente</Label>
-                  <SearchableSelect
-                    value={bulkTeacher}
-                    onValueChange={setBulkTeacher}
-                    options={teachersList.map((t) => ({ value: String(t.id), label: t.name }))}
-                    placeholder="Seleccionar docente"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Año Académico</Label>
-                  <SearchableSelect
-                    value={bulkYear}
-                    onValueChange={setBulkYear}
-                    options={yearsList.map((y) => ({ value: String(y.id), label: y.name }))}
-                    placeholder="Seleccionar año"
-                  />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Docente <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  value={bulkTeacher}
+                  onValueChange={setBulkTeacher}
+                  options={teachersList.map((t) => ({ value: String(t.id), label: t.name }))}
+                  placeholder="Seleccionar docente..."
+                />
               </div>
+              <div className="space-y-1.5">
+                <Label>Año Académico <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  value={bulkYear}
+                  onValueChange={setBulkYear}
+                  options={yearsList.map((y) => ({ value: String(y.id), label: y.name }))}
+                  placeholder="Seleccionar año..."
+                />
+              </div>
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Asignaciones ({bulkRows.length})</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addBulkRow}>
-                    <Plus className="h-4 w-4 mr-1" />Agregar fila
-                  </Button>
+          {/* Body scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {!bulkResult ? (
+              <div className="space-y-3">
+                {/* Column headers — only visible on md+ */}
+                <div className="hidden md:grid md:grid-cols-[28px_1fr_1fr_36px] gap-3 px-1">
+                  <span />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sección</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Materia / Curso</span>
+                  <span />
                 </div>
 
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {bulkRows.map((row, idx) => (
-                    <div key={row.id} className="flex gap-2 items-center">
-                      <span className="text-xs text-muted-foreground w-5 shrink-0 text-right">{idx + 1}</span>
-                      <div className="flex-1">
-                        <SearchableSelect
-                          value={row.section_id}
-                          onValueChange={(v) => updateBulkRow(row.id, "section_id", v)}
-                          options={sectionsList.map((s) => ({
-                            value: String(s.id),
-                            label: s.full_name || `${s.grade?.name || ""} "${s.name}"`,
-                          }))}
-                          placeholder="Sección"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <SearchableSelect
-                          value={row.subject_id}
-                          onValueChange={(v) => updateBulkRow(row.id, "subject_id", v)}
-                          options={subjectsList.map((s) => ({ value: String(s.id), label: s.name }))}
-                          placeholder="Materia"
-                        />
-                      </div>
+                {/* Rows */}
+                {bulkRows.map((row, idx) => (
+                  <div
+                    key={row.id}
+                    className="
+                      rounded-lg border bg-card p-3 md:p-2
+                      grid grid-cols-1 gap-2
+                      md:grid-cols-[28px_1fr_1fr_36px] md:items-center md:gap-3
+                    "
+                  >
+                    {/* Row number */}
+                    <div className="flex items-center justify-between md:justify-center">
+                      <span className="text-xs font-semibold text-muted-foreground bg-muted rounded-full w-6 h-6 flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      {/* Delete button — visible only on mobile here */}
                       <Button
-                        type="button" variant="ghost" size="icon"
+                        type="button" variant="ghost" size="sm"
                         onClick={() => removeBulkRow(row.id)}
                         disabled={bulkRows.length === 1}
-                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        className="md:hidden text-muted-foreground hover:text-destructive h-7 px-2"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-4 w-4 mr-1" />Eliminar
                       </Button>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                <span className="text-sm text-green-700 dark:text-green-300">
-                  {bulkResult.created} asignación{bulkResult.created !== 1 ? "es" : ""} creada{bulkResult.created !== 1 ? "s" : ""} exitosamente
-                </span>
-              </div>
-              {bulkResult.errors?.length > 0 && (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    {bulkResult.errors.length} fila{bulkResult.errors.length !== 1 ? "s" : ""} con errores:
+
+                    {/* Section */}
+                    <div className="space-y-1 md:space-y-0">
+                      <Label className="text-xs text-muted-foreground md:hidden">Sección</Label>
+                      <SearchableSelect
+                        value={row.section_id}
+                        onValueChange={(v) => updateBulkRow(row.id, "section_id", v)}
+                        options={sectionsList.map((s) => ({
+                          value: String(s.id),
+                          label: s.full_name || `${s.grade?.name || ""} "${s.name}"`,
+                        }))}
+                        placeholder="Seleccionar sección..."
+                      />
+                    </div>
+
+                    {/* Subject */}
+                    <div className="space-y-1 md:space-y-0">
+                      <Label className="text-xs text-muted-foreground md:hidden">Materia / Curso</Label>
+                      <SearchableSelect
+                        value={row.subject_id}
+                        onValueChange={(v) => updateBulkRow(row.id, "subject_id", v)}
+                        options={subjectsList.map((s) => ({ value: String(s.id), label: s.name }))}
+                        placeholder="Seleccionar materia..."
+                      />
+                    </div>
+
+                    {/* Delete — desktop only */}
+                    <Button
+                      type="button" variant="ghost" size="icon"
+                      onClick={() => removeBulkRow(row.id)}
+                      disabled={bulkRows.length === 1}
+                      className="hidden md:flex shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div className="max-h-40 overflow-y-auto space-y-1">
-                    {bulkResult.errors.map((err, i) => (
-                      <div key={i} className="text-xs p-2 bg-destructive/10 rounded border border-destructive/20">
-                        <span className="font-medium">Fila {err.row}:</span> {err.messages.join(", ")}
-                      </div>
-                    ))}
+                ))}
+
+                {/* Add row button */}
+                <button
+                  type="button"
+                  onClick={addBulkRow}
+                  className="
+                    w-full rounded-lg border-2 border-dashed border-muted-foreground/25
+                    hover:border-primary/50 hover:bg-primary/5
+                    py-3 flex items-center justify-center gap-2
+                    text-sm text-muted-foreground hover:text-primary
+                    transition-colors
+                  "
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar fila
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4 py-2">
+                <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-green-800 dark:text-green-200">Importación completada</p>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">
+                      {bulkResult.created} asignación{bulkResult.created !== 1 ? "es" : ""} creada{bulkResult.created !== 1 ? "s" : ""} exitosamente
+                    </p>
                   </div>
                 </div>
+                {bulkResult.errors?.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {bulkResult.errors.length} fila{bulkResult.errors.length !== 1 ? "s" : ""} con errores:
+                    </div>
+                    <div className="space-y-1.5">
+                      {bulkResult.errors.map((err, i) => (
+                        <div key={i} className="text-sm p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                          <span className="font-medium">Fila {err.row}:</span> {err.messages.join(", ")}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Footer sticky */}
+          <div className="shrink-0 px-6 py-4 border-t bg-background flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+            {!bulkResult && (
+              <p className="text-xs text-muted-foreground self-center">
+                {bulkRows.length} fila{bulkRows.length !== 1 ? "s" : ""} · {bulkRows.filter(r => r.section_id && r.subject_id).length} completa{bulkRows.filter(r => r.section_id && r.subject_id).length !== 1 ? "s" : ""}
+              </p>
+            )}
+            <div className="flex gap-2 sm:ml-auto">
+              <Button variant="outline" onClick={closeBulk} className="flex-1 sm:flex-none">
+                {bulkResult ? "Cerrar" : "Cancelar"}
+              </Button>
+              {!bulkResult && (
+                <Button
+                  onClick={handleBulkSubmit}
+                  disabled={bulkMutation.isPending}
+                  className="flex-1 sm:flex-none"
+                >
+                  {bulkMutation.isPending
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Guardando...</>
+                    : <><Layers className="h-4 w-4 mr-2" />Guardar {bulkRows.filter(r => r.section_id && r.subject_id).length} asignación{bulkRows.filter(r => r.section_id && r.subject_id).length !== 1 ? "es" : ""}</>
+                  }
+                </Button>
               )}
             </div>
-          )}
+          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={closeBulk}>
-              {bulkResult ? "Cerrar" : "Cancelar"}
-            </Button>
-            {!bulkResult && (
-              <Button onClick={handleBulkSubmit} disabled={bulkMutation.isPending}>
-                {bulkMutation.isPending
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Guardando...</>
-                  : <><Layers className="h-4 w-4 mr-2" />Guardar {bulkRows.length} asignación{bulkRows.length !== 1 ? "es" : ""}</>
-                }
-              </Button>
-            )}
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
